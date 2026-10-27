@@ -1,0 +1,31 @@
+# 地理資料：體積大、可重新下載，不放進版控
+data/
+
+# GIS 檔案
+*.shp
+*.shx
+*.dbf
+*.prj
+*.cpg
+*.sbn
+*.sbx
+*.qix
+*.gpkg
+*.gpkg-shm
+*.gpkg-wal
+
+# QGIS
+*.qgz
+*.qgs~
+*.qgz~
+
+# 下載的安裝檔
+*.msi
+*.zip
+
+# 編輯器 / 系統
+.vs/
+.vscode/
+.idea/
+Thumbs.db
+.claude/
