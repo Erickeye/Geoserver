@@ -49,6 +49,11 @@ Store 的路徑使用相對於資料目錄的寫法，例如 `file:data/taiwan/t
 
 QGIS：圖層右鍵 → 匯出 → 另存要素為 → 格式 GeoPackage，CRS 選 `EPSG:4326`。轉換選「TWD97 to WGS 84 (1)」（準確度約 1 公尺）。
 
+## 樣式（`styles/`）
+
+SLD 檔放在 `styles/`，複製到 `C:\ProgramData\GeoServer\workspaces\taiwan\styles\` 並附同名 `.xml` 登錄。
+SLD 含中文，**不要在 GeoServer 網頁編輯器按 Save**（編輯器以系統預設編碼讀檔，會把中文存成亂碼）。
+
 ## 欄位（`towns`）
 
 `TOWNID`、`TOWNCODE`、`COUNTYNAME`、`TOWNNAME`、`TOWNENG`、`COUNTYID`、`COUNTYCODE`
