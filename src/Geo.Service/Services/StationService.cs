@@ -27,6 +27,11 @@ namespace Geo.Service.Services
         /// 取得行政區與站數（下拉選單用）。
         /// </summary>
         Task<ResultModel<List<DistrictVM>>> Districts();
+
+        /// <summary>
+        /// 取得離指定座標最近的 N 個營運中站點（含公尺距離）。
+        /// </summary>
+        Task<ResultModel<List<NearestStationVM>>> Nearest(NearestSearchVM vm);
     }
 
     public class StationService : IStationService
@@ -131,6 +136,33 @@ namespace Geo.Service.Services
             return ResultModel<List<DistrictVM>>.Success(districts);
         }
 
+        public async Task<ResultModel<List<NearestStationVM>>> Nearest(NearestSearchVM vm)
+        {
+            // 兩段式 KNN：內層 geom <-> 點 吃 GiST 索引，但以「度」排序，東西向會高估，
+            // 所以多取 3 倍候選，外層再用 geography 算出的公尺距離重排。
+            // NetTopologySuite 的 Point 與 ST_MakePoint 都是 (經度, 緯度)。
+            var candidates = vm.N * 3;
+            var rows = await _db.Database.SqlQuery<NearestStationVM>($@"
+                SELECT * FROM (
+                    SELECT sno AS ""Sno"", name AS ""Name"", name_en AS ""NameEn"",
+                           district AS ""District"", address AS ""Address"",
+                           total AS ""Total"", bikes AS ""Bikes"", docks AS ""Docks"",
+                           (active = 1) AS ""IsActive"", updated AS ""Updated"",
+                           ST_Y(geom) AS ""Lat"", ST_X(geom) AS ""Lon"",
+                           round(ST_Distance(geom::geography,
+                                 ST_SetSRID(ST_MakePoint({vm.Lon}, {vm.Lat}), 4326)::geography)) AS ""DistM""
+                    FROM youbike_stations
+                    WHERE active = 1
+                    ORDER BY geom <-> ST_SetSRID(ST_MakePoint({vm.Lon}, {vm.Lat}), 4326)
+                    LIMIT {candidates}
+                ) c
+                ORDER BY ""DistM""
+                LIMIT {vm.N}")
+                .ToListAsync();
+
+            return ResultModel<List<NearestStationVM>>.Success(rows);
+        }
+
         /// <summary>
         /// 排序欄位用白名單，不接受前端任意欄位名稱；未知欄位退回 Sno。
         /// </summary>
@@ -140,7 +172,9 @@ namespace Geo.Service.Services
             var desc = string.Equals(direction, "desc", StringComparison.OrdinalIgnoreCase);
 
             IOrderedQueryable<YoubikeStation> Order<TKey>(Expression<Func<YoubikeStation, TKey>> key)
-                => desc ? query.OrderByDescending(key) : query.OrderBy(key);
+            {
+                return desc ? query.OrderByDescending(key) : query.OrderBy(key);
+            }
 
             var ordered = column.ToLowerInvariant() switch
             {

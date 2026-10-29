@@ -19,12 +19,19 @@ namespace Geo.API.Controllers
         [SwaggerOperation("查詢站點列表")]
         [HttpGet, Route("Index")]
         public async Task<IActionResult> Index([FromQuery] StationSearchVM vm)
-            => Ok(await _service.Index(vm));
+        {
+            return Ok(await _service.Index(vm));
+        }
 
         [SwaggerOperation("取得單站詳情")]
         [HttpGet, Route("Get")]
         public async Task<IActionResult> Get([FromQuery] string sno)
             => Ok(await _service.Get(sno));
+
+        [SwaggerOperation("取得最近 N 個營運中站點")]
+        [HttpGet, Route("Nearest")]
+        public async Task<IActionResult> Nearest([FromQuery] NearestSearchVM vm)
+            => Ok(await _service.Nearest(vm));
 
         [SwaggerOperation("取得行政區與站數")]
         [HttpGet, Route("Districts")]

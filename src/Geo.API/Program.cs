@@ -1,6 +1,8 @@
 using Geo.API.Filters;
+using Geo.API.BackgroundServices;
 using Geo.API.Middleware;
 using Geo.Service.Entities;
+using Geo.Service.Options;
 using Geo.Service.Services;
 using Microsoft.EntityFrameworkCore;
 
@@ -26,6 +28,17 @@ builder.Services.AddDbContext<GeoDbContext>(options =>
     options.UseNpgsql(connectionString, npgsql => npgsql.UseNetTopologySuite()));
 
 builder.Services.AddScoped<IStationService, StationService>();
+
+builder.Services.Configure<YouBikeOptions>(builder.Configuration.GetSection(YouBikeOptions.SectionName));
+builder.Services.AddHttpClient<IYouBikeSyncService, YouBikeSyncService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
+if (builder.Configuration.GetValue("YouBike:Enabled", true))
+{
+    builder.Services.AddHostedService<YouBikeRefreshService>();
+}
 
 var app = builder.Build();
 

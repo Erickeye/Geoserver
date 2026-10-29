@@ -24,6 +24,17 @@ tests/
 - 以功能命名，不加編號前綴：`StationController`、`StationService`、`IStationService`。
 - Interface 與實作放同一個檔案；DI 在 `Program.cs` 明確 `AddScoped`，不用反射自動註冊。
 - VM：`StationVM`（輸出）、`StationSearchVM`（查詢條件）、`NearestSearchVM`、`StationAddVM`（輸入）。
+- **VM 的每個屬性都要加 `[Display(Name = "中文名稱")]`**（輸出、輸入、查詢條件都一樣，`using System.ComponentModel.DataAnnotations;`），驗證訊息才會顯示中文欄位名。已有 `<summary>` 的保留，`Display` 的名稱沿用 summary 的短描述（不含補充說明）。
+
+```csharp
+public class StationSearchVM
+{
+    /// <summary>行政區（完全比對）</summary>
+    [Display(Name = "行政區")]
+    public string? District { get; set; }
+}
+```
+
 - 縮排 4 spaces、Allman 大括號、block-scoped namespace（沿用 ERP 慣例）；private 欄位 `_camelCase`；啟用 `Nullable`，不用 `!` 壓警告。
 
 ## 3. Controller
@@ -38,9 +49,13 @@ public class StationController : ControllerBase
     [SwaggerOperation("查詢站點列表")]
     [HttpGet, Route("Index")]
     public async Task<IActionResult> Index([FromQuery] StationSearchVM vm)
-        => Ok(await _service.Index(vm));
+    {
+        return Ok(await _service.Index(vm));
+    }
 }
 ```
+
+- **Action 一律用區塊本體（`{ return ...; }`），不用 expression-bodied `=>`**；Service 與其他方法也盡量遵守，除非是單純的屬性或一行 lambda。
 
 - Action 用明確 Route：`Index`（列表）、`Get`、`Add`、`Edit`、`Delete`，其他功能用名詞或動詞（如 `Nearest`）。
 - 每個 Action 加 `[SwaggerOperation]`。
@@ -85,6 +100,7 @@ public class StationController : ControllerBase
 ## 8. 完成前檢查與驗證
 
 - 以 Grep 確認 Controller 沒有注入 `DbContext`、Service 沒有回傳裸型別、沒有字串拼接 SQL。
+- 以 Grep 確認 Controller／Service 沒有 expression-bodied 方法（`^\s+=> `），且 VM 的每個屬性都有 `[Display(Name = ...)]`。
 - 確認錯誤沒有被吞掉（catch 後要記錄或回傳 `ResultModel.Error`），`ErrorCodeType` 新數值沒有重複。
 - **改完執行 `dotnet build`，涉及查詢或 API 行為的功能要實際呼叫 API 確認結果**（與 ERP 的「不編譯」規則相反，本專案以能跑為準）。需要資料庫密碼時請使用者輸入，不要自行取得。
 - 若需改動 `Program.cs` 全域設定、Middleware 或 `ErrorCodeType` 既有數值，先向使用者確認。

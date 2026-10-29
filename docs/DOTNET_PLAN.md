@@ -67,24 +67,24 @@ tests/Geo.Tests/   之後再建
 
 ### 階段 1：後端骨架與唯讀 API
 
-- [ ] 建 `Geo.sln`、`Geo.API`、`Geo.Service`，設定專案參考與 `Nullable`
-- [ ] 安裝套件：Npgsql.EntityFrameworkCore.PostgreSQL、其 NetTopologySuite 擴充、Swagger（建專案時確認可用版本）
-- [ ] 連線字串放 `appsettings.Development.json`（gitignore），repo 放 `appsettings.Development.example.json`；密碼由使用者填
-- [ ] scaffold `youbike_stations` 成 Entity／DbContext（需使用者提供連線）
-- [ ] `ResultModel<T>`、`ErrorCodeType`、全域驗證 Filter、`ExceptionMiddleware`（要記錄例外）
-- [ ] `StationService`：`Index`、`Get`、`Districts`；`StationController`
-- [ ] 驗證：Swagger 呼叫三支 API，信義區應為 129 站
+- [x] 建 `Geo.sln`、`Geo.API`、`Geo.Service`，設定專案參考與 `Nullable`
+- [x] 安裝套件：Npgsql.EntityFrameworkCore.PostgreSQL、其 NetTopologySuite 擴充、Swagger（建專案時確認可用版本）
+- [x] 連線字串放 `appsettings.Development.json`（gitignore），repo 放 `appsettings.Development.example.json`；密碼由使用者填
+- [x] scaffold `youbike_stations` 成 Entity／DbContext（需使用者提供連線）
+- [x] `ResultModel<T>`、`ErrorCodeType`、全域驗證 Filter、`ExceptionMiddleware`（要記錄例外）
+- [x] `StationService`：`Index`、`Get`、`Districts`；`StationController`
+- [x] 驗證：Swagger 呼叫三支 API，信義區應為 129 站
 
 ### 階段 2：最近 N 站
 
-- [ ] `Nearest`：兩段式 KNN（內層 `<->` 取 3 倍候選、外層 `geography` 公尺距離重排）
-- [ ] 驗證：臺北 101（lon 121.5645、lat 25.034）前 5 名應為 137、148、149、167、179 公尺，與 GeoServer SQL View 結果一致
+- [x] `Nearest`：兩段式 KNN（內層 `<->` 取 3 倍候選、外層 `geography` 公尺距離重排）
+- [x] 驗證：臺北 101（lon 121.5645、lat 25.034）前 5 名應為 137、148、149、167、179 公尺，與 GeoServer SQL View 結果一致
 
 ### 階段 3：定時更新
 
-- [ ] Options 類別放 YouBike 位址與更新間隔；`AddHttpClient`
-- [ ] `BackgroundService`：抓 JSON → `INSERT ... ON CONFLICT (sno) DO UPDATE` 更新車輛數、狀態、時間；單次失敗記錄並繼續
-- [ ] 驗證：資料表的 `updated` 隨時間推進；地圖（WMS）顏色跟著變
+- [x] Options 類別放 YouBike 位址與更新間隔；`AddHttpClient`
+- [x] `BackgroundService`：抓 JSON → `INSERT ... ON CONFLICT (sno) DO UPDATE` 更新車輛數、狀態、時間；單次失敗記錄並繼續
+- [ ] 驗證：資料表的 `updated` 隨時間推進（已驗證）；地圖（WMS）顏色跟著變（待確認）
 
 ### 階段 4：歷史快照（選做）
 
