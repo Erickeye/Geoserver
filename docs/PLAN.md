@@ -39,19 +39,19 @@ GeoServer 預設已載入官方範例資料（5 個 workspace、28 個 layer）�
 
 ## 階段 4：做成網頁（約 3 小時）
 
-- [ ] 用 Leaflet 或 OpenLayers 建 HTML 頁面，疊上 GeoServer 的 WMS 圖層
-- [ ] 用 WFS 抓 GeoJSON，點擊區域時彈出屬性視窗
-- [ ] 處理 CORS（GeoServer 需設定才能跨網域）
-- [ ] 加圖層切換與 OSM 底圖
+- [x] 用 Leaflet 或 OpenLayers 建 HTML 頁面，疊上 GeoServer 的 WMS 圖層
+- [x] 用 WFS 抓 GeoJSON，點擊區域時彈出屬性視窗
+- [ ] 處理 CORS（GeoServer 需設定才能跨網域）— 目前以 `web/serve.py` 轉送繞過，尚未實際啟用 CORS
+- [x] 加圖層切換與 OSM 底圖
 - [ ] 進階：用 C# 呼叫 WFS 並反序列化 GeoJSON
 
 ## 階段 5：PostGIS 資料庫（約 4 小時）
 
-- [ ] 安裝 PostgreSQL + PostGIS 擴充
-- [ ] 用 QGIS 或 `ogr2ogr` 把 Shapefile 匯入資料庫
-- [ ] 在 GeoServer 建 PostGIS Store 並發佈
+- [x] 安裝 PostgreSQL + PostGIS 擴充（PostgreSQL 18、PostGIS 3.6.2，資料庫 `taiwan`）
+- [x] 用 QGIS 或 `ogr2ogr` 把 Shapefile 匯入資料庫（QGIS DB Manager 已完成；`scripts/import-towns.ps1` 為 ogr2ogr 版，尚未執行驗證）
+- [x] 在 GeoServer 建 PostGIS Store 並發佈（`taiwan:towns_pg`）
 - [ ] 練習空間 SQL：`ST_Contains`、`ST_Distance`、`ST_Buffer`
-- [ ] 建 SQL View 圖層，例如「某點 500 公尺內的 POI」
+- [x] 建 SQL View 圖層，例如「某點 500 公尺內的 POI」（暫無 POI 資料，改做 `taiwan:towns_near`：某點 N 公尺內的鄉鎮，參數 `lon`、`lat`、`dist`）
 
 ## 階段 6：進階功能
 
