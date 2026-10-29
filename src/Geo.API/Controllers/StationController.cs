@@ -33,6 +33,13 @@ namespace Geo.API.Controllers
         public async Task<IActionResult> Nearest([FromQuery] NearestSearchVM vm)
             => Ok(await _service.Nearest(vm));
 
+        [SwaggerOperation("取得地圖用的全部站點（精簡欄位）")]
+        [HttpGet, Route("Map")]
+        public async Task<IActionResult> Map()
+        {
+            return Ok(await _service.Map());
+        }
+
         [SwaggerOperation("取得行政區與站數")]
         [HttpGet, Route("Districts")]
         public async Task<IActionResult> Districts()

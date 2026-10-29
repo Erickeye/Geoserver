@@ -59,6 +59,7 @@ tests/Geo.Tests/   之後再建
 | `GET api/Station/Get?sno=` | 單站詳情；找不到回 `NotFoundData` |
 | `GET api/Station/Nearest?lat=&lon=&n=5` | 最近 N 個營運中站點，含 `distM`（公尺）；驗證 lat 21–26、lon 119–123、n 1–20 |
 | `GET api/Station/Districts` | 行政區與站數（下拉選單用） |
+| `GET api/Station/Map` | 地圖用的全部站點（精簡欄位：sno、行政區、車輛數、是否營運、座標），前端以 Canvas 繪製 |
 | `GET api/Station/History?sno=&hours=24` | 階段 4：單站最近 N 小時的車輛數變化 |
 
 ## 實作階段

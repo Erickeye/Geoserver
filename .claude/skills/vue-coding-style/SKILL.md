@@ -107,7 +107,8 @@ async function loadNearest(lat, lon) {
 - **地圖實例不可放進 `reactive`／`ref`**（Vue 會深層代理而嚴重變慢），用 `shallowRef` 或 `markRaw`；標記與圖層同理。
 - 在 `onMounted` 建立地圖，`onUnmounted` 呼叫 `map.remove()`。
 - 座標順序：後端與 GeoJSON 是 `[經度, 緯度]`，Leaflet 是 `[緯度, 經度]`，集中在一個轉換函式。
-- 站點圖層用 GeoServer 的 WMS（SLD 上色）；詳情、最近 5 站、行政區篩選走 .NET API，不再由前端直打 WFS。
+- 站點圖層預設用 **Canvas** 由前端畫：`L.map(..., { preferCanvas: true })` 搭配 `L.circleMarker`，資料來自 `Station/Map`（全部站點、精簡欄位）；另保留 GeoServer 的 WMS（SLD 上色）作為切換選項。詳情、最近 5 站走 .NET API，不再由前端直打 WFS。
+- Canvas 站點的規則：`circleMarker` 要設 `bubblingMouseEvents: false`（否則點站點會同時觸發地圖點擊）；標記放在非響應式的 `Map`（sno → marker）；資料更新時用 `setStyle` 只改顏色，不要整層重畫；上色規則要與 SLD 一致（停用灰、0 輛紅、1–4 橘、5 以上綠）。
 - 動態篩選 WMS 時，刪除 `wmsParams.CQL_FILTER` 再 `redraw()`。
 - 顯示外部資料（站名、地址）進 HTML 前要跳脫（`esc()`），或改用文字節點，避免 XSS。
 - 開發時用 Vite 的 `server.proxy` 把 `/api` 轉到 .NET、`/geoserver` 轉到 `http://localhost:8080`，取代原本的 `serve.py` 代理，不需設定 CORS。

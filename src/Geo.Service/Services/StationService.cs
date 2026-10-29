@@ -32,6 +32,11 @@ namespace Geo.Service.Services
         /// 取得離指定座標最近的 N 個營運中站點（含公尺距離）。
         /// </summary>
         Task<ResultModel<List<NearestStationVM>>> Nearest(NearestSearchVM vm);
+
+        /// <summary>
+        /// 取得地圖用的全部站點（精簡欄位，含停用站點）。
+        /// </summary>
+        Task<ResultModel<List<StationMapVM>>> Map();
     }
 
     public class StationService : IStationService
@@ -161,6 +166,26 @@ namespace Geo.Service.Services
                 .ToListAsync();
 
             return ResultModel<List<NearestStationVM>>.Success(rows);
+        }
+
+        public async Task<ResultModel<List<StationMapVM>>> Map()
+        {
+            // 前端一次畫出全部站點，所以只取畫圖需要的欄位，並以 Id 排序讓結果穩定
+            var stations = await _db.YoubikeStations.AsNoTracking()
+                .Where(s => s.Geom != null)
+                .OrderBy(s => s.Id)
+                .Select(s => new StationMapVM
+                {
+                    Sno = s.Sno,
+                    District = s.District,
+                    Bikes = s.Bikes,
+                    IsActive = s.Active == 1,
+                    Lat = s.Geom != null ? s.Geom.Y : null,
+                    Lon = s.Geom != null ? s.Geom.X : null
+                })
+                .ToListAsync();
+
+            return ResultModel<List<StationMapVM>>.Success(stations);
         }
 
         /// <summary>

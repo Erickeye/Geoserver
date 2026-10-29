@@ -1,26 +1,37 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { stationApi } from '@/api/stationApi'
 import { getApiErrorMessage, isSuccess, unwrap } from '@/utils/api'
 import { normalizeStation } from '@/utils/station'
 import MapView from '@/components/MapView.vue'
 
 const NEAREST_N = 5
-const PAGE_SIZE = 100
-const MAX_PAGES = 20
+// 來源資料約每分鐘更新一次，前端同步一次即可
+const REFRESH_MS = 60000
 
 const districts = ref([])
 const district = ref('')
+// 全部站點（約 1800 筆）不需要深層響應，用 shallowRef 避免多餘的代理成本
+const stations = shallowRef([])
+const renderMode = ref('canvas')
 const origin = ref(null)
 const nearest = ref([])
 const detail = ref(null)
 const fitPoints = ref([])
 const focus = ref(null)
 const loading = ref(false)
+const loadingStations = ref(false)
 const error = ref('')
 const message = ref('')
 
+let refreshTimer = null
+
 const totalCount = computed(() => districts.value.reduce((sum, d) => sum + d.stationCount, 0))
+
+const statusText = computed(() => {
+  const firstLoad = loadingStations.value && stations.value.length === 0
+  return loading.value || firstLoad ? '載入中…' : message.value
+})
 
 function clearResults() {
   origin.value = null
@@ -46,24 +57,23 @@ async function loadDistricts() {
   }
 }
 
-// 行政區站數可能超過單頁上限，逐頁取完才能算出縮放範圍
-async function loadDistrictPoints(name) {
-  const points = []
-  for (let pageNumber = 1; pageNumber <= MAX_PAGES; pageNumber++) {
-    const response = await stationApi.index({ District: name, PageNumber: pageNumber, PageSize: PAGE_SIZE })
+async function loadStations() {
+  loadingStations.value = true
+  try {
+    const response = await stationApi.map()
     if (!isSuccess(response)) {
-      throw new Error(getApiErrorMessage(response, '載入行政區站點失敗'))
+      error.value = getApiErrorMessage(response, '載入站點失敗')
+      return
     }
-    const page = unwrap(response)
-    points.push(...page.items.map(normalizeStation))
-    if (points.length >= page.totalCount || page.items.length === 0) {
-      break
-    }
+    stations.value = unwrap(response).filter(s => s.lat != null && s.lon != null)
+  } catch (e) {
+    error.value = getApiErrorMessage(e, '載入站點失敗')
+  } finally {
+    loadingStations.value = false
   }
-  return points
 }
 
-async function onDistrictChange() {
+function onDistrictChange() {
   clearResults()
   error.value = ''
 
@@ -73,16 +83,10 @@ async function onDistrictChange() {
     return
   }
 
-  loading.value = true
-  try {
-    const points = await loadDistrictPoints(district.value)
-    fitPoints.value = points
-    message.value = `${district.value}：${points.length} 站`
-  } catch (e) {
-    error.value = getApiErrorMessage(e, '載入行政區站點失敗')
-  } finally {
-    loading.value = false
-  }
+  // 全部站點已在記憶體，直接過濾即可算出縮放範圍
+  const points = stations.value.filter(s => s.district === district.value)
+  fitPoints.value = points
+  message.value = `${district.value}：${points.length} 站`
 }
 
 async function showDetail(sno) {
@@ -97,7 +101,19 @@ async function showDetail(sno) {
   message.value = detail.value.name
 }
 
-// 點到站點看詳情，否則以該處為起點顯示最近 5 站
+async function loadDetail(sno) {
+  loading.value = true
+  error.value = ''
+  try {
+    await showDetail(sno)
+  } catch (e) {
+    error.value = getApiErrorMessage(e, '載入站點詳情失敗')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 點到站點看詳情（WMS 模式），否則以該處為起點顯示最近 5 站
 async function loadNearest(lat, lon, toleranceM) {
   loading.value = true
   error.value = ''
@@ -108,17 +124,17 @@ async function loadNearest(lat, lon, toleranceM) {
       return
     }
 
-    const stations = unwrap(response).map(normalizeStation)
-    if (stations.length > 0 && stations[0].distM <= toleranceM) {
-      await showDetail(stations[0].sno)
+    const list = unwrap(response).map(normalizeStation)
+    if (list.length > 0 && list[0].distM <= toleranceM) {
+      await showDetail(list[0].sno)
       return
     }
 
     detail.value = null
     origin.value = { lat, lon }
-    nearest.value = stations
-    fitPoints.value = [{ lat, lon }, ...stations]
-    message.value = stations.length > 0 ? `最近的 ${stations.length} 個站（僅營運中）` : '附近沒有站點資料'
+    nearest.value = list
+    fitPoints.value = [{ lat, lon }, ...list]
+    message.value = list.length > 0 ? `最近的 ${list.length} 個站（僅營運中）` : '附近沒有站點資料'
   } catch (e) {
     error.value = getApiErrorMessage(e, '查詢最近站點失敗')
   } finally {
@@ -138,7 +154,7 @@ function locateMe() {
 
   message.value = '定位中…'
   navigator.geolocation.getCurrentPosition(
-    position => loadNearest(position.coords.latitude, position.coords.longitude, 0),
+    position => loadNearest(position.coords.latitude, position.coords.longitude, -1),
     failure => {
       error.value = `定位失敗：${failure.message}。可改為直接點地圖設定起點`
     },
@@ -159,12 +175,22 @@ function focusStation(sno) {
 
 watch(district, onDistrictChange)
 
-onMounted(loadDistricts)
+onMounted(() => {
+  loadDistricts()
+  loadStations()
+  refreshTimer = setInterval(loadStations, REFRESH_MS)
+})
+
+onUnmounted(() => {
+  clearInterval(refreshTimer)
+})
 </script>
 
 <template>
   <div class="home">
     <MapView
+      :stations="stations"
+      :render-mode="renderMode"
       :district="district"
       :origin="origin"
       :nearest="nearest"
@@ -172,6 +198,7 @@ onMounted(loadDistricts)
       :fit-points="fitPoints"
       :focus="focus"
       @map-click="onMapClick"
+      @station-click="loadDetail"
     />
 
     <div class="panel">
@@ -191,10 +218,16 @@ onMounted(loadDistricts)
         <button type="button" @click="clearAll">清除</button>
       </div>
 
+      <div class="row mode">
+        <span>站點圖層</span>
+        <label><input v-model="renderMode" type="radio" value="canvas"> Canvas</label>
+        <label><input v-model="renderMode" type="radio" value="wms"> WMS</label>
+      </div>
+
       <p class="hint">點站點看詳情；點空白處則以該處為起點，找最近的 5 個站。</p>
 
       <div v-if="error" class="status error">{{ error }}</div>
-      <div v-else class="status">{{ loading ? '載入中…' : message }}</div>
+      <div v-else class="status">{{ statusText }}</div>
 
       <ol class="nearest">
         <li v-for="(station, index) in nearest" :key="station.sno" @click="focusStation(station.sno)">
@@ -243,6 +276,19 @@ onMounted(loadDistricts)
   flex: 1;
   padding: 6px;
   font: inherit;
+}
+
+.mode {
+  align-items: center;
+  font-size: 12px;
+  color: #444;
+}
+
+.mode label {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
 }
 
 .hint {
