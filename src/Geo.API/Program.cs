@@ -4,7 +4,9 @@ using Geo.API.Middleware;
 using Geo.Service.Entities;
 using Geo.Service.Options;
 using Geo.Service.Services;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
+using System.IO.Compression;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +19,12 @@ builder.Services.AddControllers(options =>
         // 關閉預設的 400 自動回應，交給 ValidateModelFilter 統一格式
         options.SuppressModelStateInvalidFilter = true;
     });
+
+// 回應壓縮：Brotli／gzip，預設會壓 application/json；用 Fastest 降低 CPU 成本
+// 預設不在 HTTPS 下壓縮（避免 BREACH）；目前回應都是公開資料，若之後要啟用再評估
+builder.Services.AddResponseCompression();
+builder.Services.Configure<BrotliCompressionProviderOptions>(options => options.Level = CompressionLevel.Fastest);
+builder.Services.Configure<GzipCompressionProviderOptions>(options => options.Level = CompressionLevel.Fastest);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options => options.EnableAnnotations());
@@ -41,6 +49,9 @@ if (builder.Configuration.GetValue("YouBike:Enabled", true))
 }
 
 var app = builder.Build();
+
+// 放在最前面，連 ExceptionMiddleware 產生的錯誤回應也會被壓縮
+app.UseResponseCompression();
 
 app.UseMiddleware<ExceptionMiddleware>();
 
