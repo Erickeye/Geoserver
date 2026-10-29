@@ -49,17 +49,6 @@ Store 的路徑使用相對於資料目錄的寫法，例如 `file:data/taiwan/t
 
 QGIS：圖層右鍵 → 匯出 → 另存要素為 → 格式 GeoPackage，CRS 選 `EPSG:4326`。轉換選「TWD97 to WGS 84 (1)」（準確度約 1 公尺）。
 
-## 網頁地圖（`web/`）
-
-Leaflet 頁面：OSM 底圖、疊 WMS 樣式、縣市篩選（CQL）、點擊以 WFS 查詢鄉鎮。
-
-```
-python web/serve.py      # 開啟 http://localhost:5500/
-```
-
-`serve.py` 提供網頁並把 `/geoserver/*` 轉送到 8080，前端與 GeoServer 因而同源，不需設定 CORS。
-（GeoServer 自己的 `www` 資料夾有 CSP 標頭，會擋掉 CDN 與 OSM 底圖，不適合放這個頁面。）
-
 ## 結業專案：台灣便民地圖（`app/`）
 
 臺北市 YouBike 站點地圖：依可借車數上色、點站點看詳情、依行政區篩選、點空白處找最近 5 站。

@@ -54,7 +54,6 @@ app/        前端（Leaflet 頁面、serve.py 代理 GeoServer 以避開 CORS�
 sql/        建表、索引、查詢 SQL
 scripts/    匯入 YouBike、之後的 GeoServer 設定腳本
 docs/       文件
-web/        階段 4 的學習用頁面，保留不動
 ```
 
 ## 實作步驟
