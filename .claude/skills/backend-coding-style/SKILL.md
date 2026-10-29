@@ -1,6 +1,6 @@
 ---
 name: backend-coding-style
-description: Apply the Geo project's .NET backend coding style when creating, modifying, reviewing, or explaining .NET Web API code under src/Geo.WebAPI or src/Geo.Service; Controller, Service, ViewModel, ResultModel, EF Core query, PostGIS / NetTopologySuite spatial query, nearest-station KNN, YouBike refresh BackgroundService, logging, validation, or pagination work.
+description: Apply the Geo project's .NET backend coding style when creating, modifying, reviewing, or explaining .NET Web API code under src/Geo.API or src/Geo.Service; Controller, Service, ViewModel, ResultModel, EF Core query, PostGIS / NetTopologySuite spatial query, nearest-station KNN, YouBike refresh BackgroundService, logging, validation, or pagination work.
 ---
 
 # Backend Coding Style（.NET 10）
@@ -11,13 +11,13 @@ Geo 結業專案的後端規範。承襲 ERP.WebAPI 的核心做法，去掉 ERP
 
 ```
 src/
-  Geo.WebAPI/    Controller、Program.cs、Filter、Middleware、BackgroundService
+  Geo.API/    Controller、Program.cs、Filter、Middleware、BackgroundService
   Geo.Service/   Service、Entity／DbContext、ViewModel、ResultModel、Enum
 tests/
   Geo.Tests/     之後再建
 ```
 
-依賴方向：`WebAPI -> Service`。Controller 不直接使用 `DbContext`，也不寫商業邏輯。
+依賴方向：`API -> Service`。Controller 不直接使用 `DbContext`，也不寫商業邏輯。
 
 ## 2. 命名
 

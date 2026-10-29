@@ -30,3 +30,22 @@ data/
 Thumbs.db
 .claude/*
 !.claude/skills/
+
+# 本機連線設定（含密碼）
+src/Geo.API/appsettings.Development.json
+
+# .NET 建置產物
+bin/
+obj/
+publish/
+*.user
+*.suo
+*.userprefs
+TestResults/
+*.log
+
+# 前端（Vue）
+node_modules/
+dist/
+.env.local
+.env.*.local

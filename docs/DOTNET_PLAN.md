@@ -29,14 +29,14 @@
 YouBike JSON ──(BackgroundService 定時更新)──▶ PostGIS ◀── GeoServer（WMS 圖磚）
                                                   ▲                    │
                                                   │                    ▼
-                                  Geo.Service ◀─ Geo.WebAPI (REST)   Vue + Leaflet
+                                  Geo.Service ◀─ Geo.API (REST)   Vue + Leaflet
                                                            ▲              │
                                                            └──────────────┘ /api
 ```
 
 ```
 Geo.sln
-src/Geo.WebAPI/    Controller、Program.cs、Filter、Middleware、BackgroundService
+src/Geo.API/    Controller、Program.cs、Filter、Middleware、BackgroundService
 src/Geo.Service/   Service、Entity／DbContext、VM、ResultModel、Enum
 src/Geo.Vue/       Vue 3 + Vite + Leaflet
 tests/Geo.Tests/   之後再建
@@ -67,7 +67,7 @@ tests/Geo.Tests/   之後再建
 
 ### 階段 1：後端骨架與唯讀 API
 
-- [ ] 建 `Geo.sln`、`Geo.WebAPI`、`Geo.Service`，設定專案參考與 `Nullable`
+- [ ] 建 `Geo.sln`、`Geo.API`、`Geo.Service`，設定專案參考與 `Nullable`
 - [ ] 安裝套件：Npgsql.EntityFrameworkCore.PostgreSQL、其 NetTopologySuite 擴充、Swagger（建專案時確認可用版本）
 - [ ] 連線字串放 `appsettings.Development.json`（gitignore），repo 放 `appsettings.Development.example.json`；密碼由使用者填
 - [ ] scaffold `youbike_stations` 成 Entity／DbContext（需使用者提供連線）
