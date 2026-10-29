@@ -1,5 +1,5 @@
 # 把 data/taiwan/towns.gpkg 匯入 PostGIS（資料庫 taiwan、資料表 public.towns）
-# 用法：powershell -File scripts\import-towns.ps1
+# 用法：pwsh -File scripts\import-towns.ps1
 # 密碼執行時才輸入，不寫在檔案裡。
 
 $ogr2ogr = "C:\Program Files\QGIS 3.44.15\bin\ogr2ogr.exe"

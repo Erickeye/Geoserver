@@ -62,12 +62,13 @@ GeoServer 預設已載入官方範例資料（5 個 workspace、28 個 layer）�
 
 ## 結業專案：台灣便民地圖
 
-- 資料：YouBike 站點、公車站或避難所（皆有開放資料）
-- 架構：PostGIS 存資料 → GeoServer 發佈 → Leaflet 網頁顯示
+- 資料：臺北市 YouBike 2.0 站點（1823 站），詳見 [PROJECT.md](PROJECT.md)
+- 架構：PostGIS 存資料 → GeoServer 發佈 → Leaflet 網頁顯示（`app/`）
 - 功能：
-  - [ ] 點選站點顯示詳情
-  - [ ] 依行政區篩選
-  - [ ] 顯示「離我最近的 5 個站」
+  - [x] 點選站點顯示詳情
+  - [x] 依行政區篩選
+  - [x] 顯示「離我最近的 5 個站」（SQL View `taiwan:youbike_nearest`，KNN 兩段式）
+- 已用 REST API 腳本（`scripts/setup-geoserver.ps1`）建立樣式與圖層，階段 6 的 REST 項目只差 workspace 與 Store
 
 ## 建議工具
 

@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>台灣便民地圖 · YouBike</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  html, body, #map { height: 100%; margin: 0; }
+  body { font-family: "Microsoft JhengHei", system-ui, sans-serif; font-size: 14px; }
+  .panel { position: absolute; z-index: 1000; top: 10px; left: 56px; width: min(320px, calc(100vw - 72px));
+           background: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,.3); padding: 12px; }
+  .panel h1 { font-size: 16px; margin: 0 0 8px; }
+  .row { display: flex; gap: 6px; margin-bottom: 8px; }
+  .row select, .row button { flex: 1; padding: 6px; font: inherit; }
+  .hint { color: #666; font-size: 12px; margin: 0 0 8px; }
+  #status { font-size: 12px; color: #444; min-height: 1.2em; }
+  #status.error { color: #c62828; }
+  #nearest { list-style: none; margin: 8px 0 0; padding: 0; }
+  #nearest li { display: flex; gap: 8px; align-items: center; padding: 6px 4px; border-top: 1px solid #eee; cursor: pointer; }
+  #nearest li:hover { background: #f3f7ff; }
+  .rank, .num { flex: none; width: 22px; height: 22px; border-radius: 50%; background: #1565C0; color: #fff;
+                font-weight: bold; font-size: 12px; display: flex; align-items: center; justify-content: center;
+                border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.5); box-sizing: border-box; }
+  .meta { color: #666; font-size: 12px; }
+  .legend { position: absolute; z-index: 1000; left: 10px; bottom: 24px; background: #fff; border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,.3); padding: 8px 10px; font-size: 12px; line-height: 1.7; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+  .popup b { font-size: 15px; }
+  .popup table { border-collapse: collapse; margin-top: 4px; }
+  .popup td { padding: 1px 8px 1px 0; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="panel">
+  <h1>台灣便民地圖 · YouBike</h1>
+  <div class="row">
+    <select id="district" aria-label="行政區"><option value="">全部行政區</option></select>
+  </div>
+  <div class="row">
+    <button id="locate" type="button">定位我的位置</button>
+    <button id="clear" type="button">清除</button>
+  </div>
+  <p class="hint">點站點看詳情；點空白處則以該處為起點，找最近的 5 個站。</p>
+  <div id="status">載入中…</div>
+  <ol id="nearest"></ol>
+</div>
+
+<div class="legend">
+  <div><span class="dot" style="background:#2E7D32"></span>5 輛以上</div>
+  <div><span class="dot" style="background:#F57C00"></span>1–4 輛</div>
+  <div><span class="dot" style="background:#D32F2F"></span>無車可借</div>
+  <div><span class="dot" style="background:#9E9E9E"></span>停用</div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// 與 GeoServer 同源（由 serve.py 轉送），可用 ?gs=http://host:8080/geoserver 覆寫
+const GS = new URLSearchParams(location.search).get('gs') || '/geoserver';
+const WS = 'taiwan';
+const STATIONS = 'taiwan:youbike';
+const NEAREST = 'taiwan:youbike_nearest';
+const NEAREST_N = 5;
+const CLICK_TOLERANCE_PX = 12;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g,
+  c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+const map = L.map('map', { zoomControl: false }).setView([25.04, 121.54], 12);
+L.control.zoom({ position: 'bottomright' }).addTo(map);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · YouBike 資料：臺北市政府（政府資料開放授權條款第 1 版）'
+}).addTo(map);
+
+// 站點圖層由 GeoServer 以 SLD（youbike-bikes）繪製
+const wms = L.tileLayer.wms(`${GS}/${WS}/wms`, {
+  layers: STATIONS, format: 'image/png', transparent: true, version: '1.1.1'
+}).addTo(map);
+
+const resultLayer = L.layerGroup().addTo(map);
+let currentDistrict = '';
+
+// ---- WFS ----
+async function wfs(typeName, params) {
+  const q = new URLSearchParams({
+    service: 'WFS', version: '1.0.0', request: 'GetFeature', typeName,
+    outputFormat: 'application/json', ...params
+  });
+  const r = await fetch(`${GS}/${WS}/ows?${q}`);
+  if (!r.ok) throw new Error(`GeoServer 回應 ${r.status}`);
+  try { return await r.json(); }
+  catch { throw new Error('GeoServer 回傳非 JSON（圖層是否已建立？請先執行 scripts/setup-geoserver.ps1）'); }
+}
+
+const districtCql = () => currentDistrict ? `district='${currentDistrict.replace(/'/g, "''")}'` : '';
+
+function setStatus(msg, isError = false) {
+  $('status').textContent = msg;
+  $('status').classList.toggle('error', isError);
+}
+
+// ---- 站點詳情 ----
+function popupHtml(p) {
+  const state = p.active === 1 ? '營運中' : '停用';
+  return `<div class="popup"><b>${esc(p.name)}</b><br>${esc(p.district)} · ${esc(p.address)}
+    <table>
+      <tr><td>可借車輛</td><td><b>${esc(p.bikes)}</b></td></tr>
+      <tr><td>可還空位</td><td><b>${esc(p.docks)}</b></td></tr>
+      <tr><td>總車位</td><td>${esc(p.total)}</td></tr>
+      <tr><td>狀態</td><td>${state}</td></tr>
+      ${p.dist_m != null ? `<tr><td>距離</td><td>${esc(p.dist_m)} 公尺</td></tr>` : ''}
+      <tr><td>更新</td><td>${esc(p.updated)}</td></tr>
+    </table></div>`;
+}
+
+const lngLatToLatLng = c => L.latLng(c[1], c[0]);  // GeoJSON 是 [經度, 緯度]，Leaflet 是 [緯度, 經度]
+
+// ---- 行政區篩選 ----
+async function loadDistricts() {
+  const data = await wfs(STATIONS, { propertyName: 'district' });
+  const counts = new Map();
+  data.features.forEach(f => counts.set(f.properties.district, (counts.get(f.properties.district) || 0) + 1));
+  [...counts.keys()].sort((a, b) => a.localeCompare(b, 'zh-Hant')).forEach(d => {
+    const o = document.createElement('option');
+    o.value = d; o.textContent = `${d}（${counts.get(d)}）`;
+    $('district').appendChild(o);
+  });
+  setStatus(`共 ${data.features.length} 站`);
+}
+
+async function applyDistrict() {
+  currentDistrict = $('district').value;
+  const cql = districtCql();
+  delete wms.wmsParams.CQL_FILTER;
+  if (cql) wms.wmsParams.CQL_FILTER = cql;
+  wms.redraw();
+  clearResults();
+  const data = await wfs(STATIONS, cql ? { CQL_FILTER: cql } : {});
+  if (cql && data.features.length) {
+    map.fitBounds(L.geoJSON(data).getBounds(), { padding: [40, 40] });
+    setStatus(`${currentDistrict}：${data.features.length} 站`);
+  } else {
+    setStatus(`共 ${data.features.length} 站`);
+  }
+}
+
+// ---- 點地圖：點到站點看詳情，否則以該處為起點找最近 5 站 ----
+async function onMapClick(e) {
+  const p = map.latLngToContainerPoint(e.latlng);
+  const sw = map.containerPointToLatLng([p.x - CLICK_TOLERANCE_PX, p.y + CLICK_TOLERANCE_PX]);
+  const ne = map.containerPointToLatLng([p.x + CLICK_TOLERANCE_PX, p.y - CLICK_TOLERANCE_PX]);
+  let cql = `BBOX(geom,${sw.lng},${sw.lat},${ne.lng},${ne.lat},'EPSG:4326')`;
+  if (currentDistrict) cql += ` AND ${districtCql()}`;
+  try {
+    const data = await wfs(STATIONS, { CQL_FILTER: cql });
+    if (data.features.length) {
+      const nearest = data.features
+        .map(f => ({ f, d: map.distance(e.latlng, lngLatToLatLng(f.geometry.coordinates)) }))
+        .sort((a, b) => a.d - b.d)[0].f;
+      L.popup().setLatLng(lngLatToLatLng(nearest.geometry.coordinates))
+        .setContent(popupHtml(nearest.properties)).openOn(map);
+    } else {
+      await showNearest(e.latlng);
+    }
+  } catch (err) { setStatus(err.message, true); }
+}
+
+// ---- 離我最近的 5 個站（SQL View：KNN）----
+function clearResults() {
+  resultLayer.clearLayers();
+  $('nearest').innerHTML = '';
+}
+
+async function showNearest(latlng) {
+  clearResults();
+  L.circleMarker(latlng, { radius: 9, color: '#fff', weight: 3, fillColor: '#1565C0', fillOpacity: 1 })
+    .bindTooltip('起點').addTo(resultLayer);
+  setStatus('查詢最近的站…');
+  const data = await wfs(NEAREST, {
+    viewparams: `lon:${latlng.lng.toFixed(6)};lat:${latlng.lat.toFixed(6)};n:${NEAREST_N}`
+  });
+  const feats = data.features.sort((a, b) => a.properties.dist_m - b.properties.dist_m);
+  const points = [latlng];
+  feats.forEach((f, i) => {
+    const ll = lngLatToLatLng(f.geometry.coordinates);
+    points.push(ll);
+    const marker = L.marker(ll, {
+      icon: L.divIcon({ className: '', html: `<div class="num">${i + 1}</div>`, iconSize: [22, 22], iconAnchor: [11, 11] })
+    }).bindPopup(popupHtml(f.properties)).addTo(resultLayer);
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="rank">${i + 1}</span><div><b>${esc(f.properties.name)}</b>
+      <div class="meta">${esc(f.properties.dist_m)} 公尺 · 可借 ${esc(f.properties.bikes)} · 可還 ${esc(f.properties.docks)}</div></div>`;
+    li.onclick = () => { map.panTo(ll); marker.openPopup(); };
+    $('nearest').appendChild(li);
+  });
+  if (points.length > 1) map.fitBounds(L.latLngBounds(points), { padding: [60, 60], maxZoom: 17 });
+  setStatus(feats.length ? `最近的 ${feats.length} 個站（僅營運中）` : '附近沒有站點資料');
+}
+
+function locateMe() {
+  if (!navigator.geolocation) { setStatus('此瀏覽器不支援定位', true); return; }
+  setStatus('定位中…');
+  navigator.geolocation.getCurrentPosition(
+    pos => showNearest(L.latLng(pos.coords.latitude, pos.coords.longitude)).catch(err => setStatus(err.message, true)),
+    err => setStatus(`定位失敗：${err.message}。可改為直接點地圖設定起點`, true),
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+map.on('click', onMapClick);
+$('district').addEventListener('change', () => applyDistrict().catch(err => setStatus(err.message, true)));
+$('locate').addEventListener('click', locateMe);
+$('clear').addEventListener('click', () => { clearResults(); map.closePopup(); setStatus('已清除'); });
+loadDistricts().catch(err => setStatus(err.message, true));
+</script>
+</body>
+</html>

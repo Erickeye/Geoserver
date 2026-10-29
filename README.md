@@ -1,6 +1,6 @@
 # geoserver-taiwan-lab
 
-用台灣鄉鎮市區界線學習 GeoServer 的練習專案。學習進度與清單請看 [PLAN.md](PLAN.md)。
+用台灣鄉鎮市區界線學習 GeoServer 的練習專案。學習進度與清單請看 [docs/PLAN.md](docs/PLAN.md)，結業專案（YouBike 便民地圖）請看 [docs/PROJECT.md](docs/PROJECT.md)。
 
 ## 環境
 
@@ -59,6 +59,26 @@ python web/serve.py      # 開啟 http://localhost:5500/
 
 `serve.py` 提供網頁並把 `/geoserver/*` 轉送到 8080，前端與 GeoServer 因而同源，不需設定 CORS。
 （GeoServer 自己的 `www` 資料夾有 CSP 標頭，會擋掉 CDN 與 OSM 底圖，不適合放這個頁面。）
+
+## 結業專案：台灣便民地圖（`app/`）
+
+臺北市 YouBike 站點地圖：依可借車數上色、點站點看詳情、依行政區篩選、點空白處找最近 5 站。
+資料存在 PostGIS，經 GeoServer 發佈，由 Leaflet 顯示。前置條件：PostgreSQL + PostGIS、資料庫 `taiwan`、GeoServer 的 workspace `taiwan` 與 Store `taiwan_postgis`，需要 PowerShell 7 (`pwsh`)。
+
+```
+pwsh -File scripts\import-youbike.ps1      # 下載資料、轉 GeoJSON、匯入 PostGIS（輸入 postgres 密碼）；-Refresh 重新下載
+pwsh -File scripts\setup-geoserver.ps1     # 用 REST API 建樣式與圖層（預設帳密 admin/geoserver）
+python app\serve.py                        # 開啟 http://localhost:5600/
+```
+
+| 位置 | 內容 |
+|---|---|
+| `scripts/` | 匯入與 GeoServer 設定腳本，`youbike_to_geojson.py` 負責轉檔 |
+| `sql/` | `01` 匯入後補索引（腳本自動執行）、`02` 練習用空間查詢 |
+| `styles/youbike-bikes.sld` | 依可借車輛上色的樣式 |
+| `app/` | Leaflet 頁面與 `serve.py` 代理 |
+
+GeoServer 設定不在專案內，所以用 `setup-geoserver.ps1` 重建；`import-towns.ps1` 則匯入行政區邊界 `towns`。
 
 ## 樣式（`styles/`）
 
