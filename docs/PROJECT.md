@@ -97,6 +97,6 @@ python app\serve.py                          # 開啟 http://localhost:5600/
 
 ## 之後可擴充
 
-- 定時重新匯入，讓可借車數接近即時
+- 定時重新匯入，讓可借車數接近即時（.NET 後端與 Vue 前端的擴充計畫見 [DOTNET_PLAN.md](DOTNET_PLAN.md)）
 - 納入其他縣市的 YouBike，或公車站、避難收容處所
 - 改用 Docker 部署 GeoServer + PostGIS（階段 6）

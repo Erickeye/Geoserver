@@ -13,6 +13,7 @@
 
 ## 專案背景
 
-- 這是學習 GeoServer 的練習專案，進度見 `PLAN.md`，環境與設定見 `README.md`。
+- 這是學習 GeoServer 的練習專案，進度見 `docs/PLAN.md`，結業專案見 `docs/PROJECT.md`，環境與設定見 `README.md`。
 - GeoServer 以 Windows 服務執行，只讀得到 `C:\ProgramData\GeoServer\data\` 底下的檔案，讀不到 `C:\Users\...`。
+- 結業專案的 .NET 後端與 Vue 前端依 `.claude/skills/` 的 `backend-coding-style` 與 `vue-coding-style` 撰寫；這兩份規範優先於 ERP 專案的規範。
 - 回覆使用繁體中文。

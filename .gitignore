@@ -28,4 +28,5 @@ data/
 .vscode/
 .idea/
 Thumbs.db
-.claude/
+.claude/*
+!.claude/skills/
