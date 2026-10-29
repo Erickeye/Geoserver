@@ -41,7 +41,7 @@ GeoServer 預設已載入官方範例資料（5 個 workspace、28 個 layer）�
 
 - [x] 用 Leaflet 或 OpenLayers 建 HTML 頁面，疊上 GeoServer 的 WMS 圖層
 - [x] 用 WFS 抓 GeoJSON，點擊區域時彈出屬性視窗
-- [ ] 處理 CORS（GeoServer 需設定才能跨網域）— 目前以 `app/serve.py` 轉送繞過（階段 4 的 `web/` 已移除，可從 git 歷史取回），尚未實際啟用 CORS
+- [ ] 處理 CORS（GeoServer 需設定才能跨網域）— 目前以 Vite `server.proxy` 轉送繞過（原 `app/serve.py` 與階段 4 的 `web/` 已移除，可從 git 歷史取回），尚未實際啟用 CORS
 - [x] 加圖層切換與 OSM 底圖
 - [ ] 進階：用 C# 呼叫 WFS 並反序列化 GeoJSON
 
@@ -63,7 +63,7 @@ GeoServer 預設已載入官方範例資料（5 個 workspace、28 個 layer）�
 ## 結業專案：台灣便民地圖
 
 - 資料：臺北市 YouBike 2.0 站點（1823 站），詳見 [PROJECT.md](PROJECT.md)
-- 架構：PostGIS 存資料 → GeoServer 發佈 → Leaflet 網頁顯示（`app/`）
+- 架構：PostGIS 存資料 → GeoServer 發佈 → Leaflet 網頁顯示（`src/Geo.Vue`）
 - 功能：
   - [x] 點選站點顯示詳情
   - [x] 依行政區篩選

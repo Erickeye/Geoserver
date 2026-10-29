@@ -17,7 +17,7 @@
 | PostgreSQL 18 + PostGIS 3.6.2 | `localhost:5432`，資料庫 `taiwan`，使用者 `postgres`（密碼由使用者自行輸入，AI 不處理） |
 | 資料表 `public.youbike_stations` | 1823 站；欄位 `id`(PK)、`sno`(UNIQUE)、`name`、`name_en`、`district`、`address`、`total`、`bikes`、`docks`、`active`(1/0)、`updated`、`geom`(Point, 4326)；`geom` 有 GiST 索引、`district` 有索引 |
 | GeoServer | `http://localhost:8080/geoserver`，預設帳密 `admin`/`geoserver`；workspace `taiwan`、Store `taiwan_postgis`；圖層 `taiwan:youbike`（SLD `youbike-bikes`）、SQL View `taiwan:youbike_nearest` |
-| 現有前端 | `app/index.html`（單檔 Leaflet）+ `app/serve.py`（port 5600，代理 `/geoserver`） |
+| 原前端（已移除） | `app/index.html` 與 `app/serve.py`（port 5600）已由 `src/Geo.Vue` 取代，可從 git 歷史取回 |
 | 工具 | .NET SDK 10.0.402、Node 24、npm 11、PowerShell 7（`pwsh`） |
 | 參考 SQL | `sql/02_youbike_queries.sql`（兩段式 KNN） |
 
@@ -93,10 +93,10 @@ tests/Geo.Tests/   之後再建
 
 ### 階段 5：Vue 前端
 
-- [ ] Vite 建 `src/Geo.Vue`，設定 `server.proxy`（`/api` → .NET、`/geoserver` → 8080）與 `.env.*`
-- [ ] `http.js`、`stationApi.js`、`utils/api.js`
-- [ ] `MapView.vue`（`shallowRef`、WMS 圖層、座標轉換）、行政區下拉、點站點看詳情、點空白處找最近 5 站
-- [ ] 驗證：功能與現有 `app/` 一致後，移除 `app/`（連同 `serve.py`）
+- [x] Vite 建 `src/Geo.Vue`，設定 `server.proxy`（`/api` → .NET、`/geoserver` → 8080）與 `.env.*`
+- [x] `http.js`、`stationApi.js`、`utils/api.js`
+- [x] `MapView.vue`（`shallowRef`、WMS 圖層、座標轉換）、行政區下拉、點站點看詳情、點空白處找最近 5 站
+- [x] 驗證：功能與原 `app/` 一致（點站點詳情改走 `Nearest`＋`Get`，因此停用站點點不到），已移除 `app/`（連同 `serve.py`）
 
 ### 階段 6：收尾（選做）
 

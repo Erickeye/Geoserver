@@ -42,7 +42,7 @@ YouBike JSON ──匯入──▶ PostGIS (taiwan.public.youbike_stations)
                       WMS / WFS 發佈圖層
                            │
                            ▼
-                  Leaflet 前端（app/）
+                  Vue + Leaflet 前端（src/Geo.Vue）
 ```
 
 資料庫沿用 `taiwan`，行政區邊界沿用 `towns`，可用空間查詢把站點對應到鄉鎮。
@@ -50,7 +50,7 @@ YouBike JSON ──匯入──▶ PostGIS (taiwan.public.youbike_stations)
 ## 專案結構
 
 ```
-app/        前端（Leaflet 頁面、serve.py 代理 GeoServer 以避開 CORS）
+src/        .NET 後端（Geo.API、Geo.Service）與 Vue 前端（Geo.Vue；Vite proxy 取代原本的 serve.py）
 sql/        建表、索引、查詢 SQL
 scripts/    匯入 YouBike、之後的 GeoServer 設定腳本
 docs/       文件
@@ -73,7 +73,7 @@ docs/       文件
 - [x] 下載 `youbike_immediate.json`，確認欄位
 - [x] 步驟 1：建表與匯入（`scripts/import-youbike.ps1`）
 - [x] 步驟 2：GeoServer 發佈圖層與樣式（`scripts/setup-geoserver.ps1` 與 `styles/youbike-bikes.sld`）
-- [x] 步驟 3：前端顯示站點與詳情（`app/index.html`）
+- [x] 步驟 3：前端顯示站點與詳情（原為 `app/index.html`，現為 `src/Geo.Vue`）
 - [x] 步驟 4：行政區篩選（同上）
 - [x] 步驟 5：離我最近的 5 個站（SQL View `taiwan:youbike_nearest`，同上）
 
@@ -82,7 +82,8 @@ docs/       文件
 ```
 pwsh -File scripts\import-youbike.ps1        # 輸入 postgres 密碼：建表並匯入 1823 站
 pwsh -File scripts\setup-geoserver.ps1       # 用 GeoServer 預設帳密 admin/geoserver：建樣式與兩個圖層
-python app\serve.py                          # 開啟 http://localhost:5600/
+dotnet run --project src\Geo.API --urls http://localhost:5286   # 後端（含定時更新）
+cd src\Geo.Vue; npm run dev                                      # 開啟 http://localhost:5173/
 ```
 
 ## 設計備忘

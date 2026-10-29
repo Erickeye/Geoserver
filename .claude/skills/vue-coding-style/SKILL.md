@@ -110,7 +110,7 @@ async function loadNearest(lat, lon) {
 - 站點圖層用 GeoServer 的 WMS（SLD 上色）；詳情、最近 5 站、行政區篩選走 .NET API，不再由前端直打 WFS。
 - 動態篩選 WMS 時，刪除 `wmsParams.CQL_FILTER` 再 `redraw()`。
 - 顯示外部資料（站名、地址）進 HTML 前要跳脫（`esc()`），或改用文字節點，避免 XSS。
-- 開發時用 Vite 的 `server.proxy` 把 `/api` 轉到 .NET、`/geoserver` 轉到 `http://localhost:8080`，取代 `app/serve.py`，不需設定 CORS。
+- 開發時用 Vite 的 `server.proxy` 把 `/api` 轉到 .NET、`/geoserver` 轉到 `http://localhost:8080`，取代原本的 `serve.py` 代理，不需設定 CORS。
 
 ## 7. CSS
 

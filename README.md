@@ -49,15 +49,21 @@ Store 的路徑使用相對於資料目錄的寫法，例如 `file:data/taiwan/t
 
 QGIS：圖層右鍵 → 匯出 → 另存要素為 → 格式 GeoPackage，CRS 選 `EPSG:4326`。轉換選「TWD97 to WGS 84 (1)」（準確度約 1 公尺）。
 
-## 結業專案：台灣便民地圖（`app/`）
+## 結業專案：台灣便民地圖（`src/`）
 
 臺北市 YouBike 站點地圖：依可借車數上色、點站點看詳情、依行政區篩選、點空白處找最近 5 站。
-資料存在 PostGIS，經 GeoServer 發佈，由 Leaflet 顯示。前置條件：PostgreSQL + PostGIS、資料庫 `taiwan`、GeoServer 的 workspace `taiwan` 與 Store `taiwan_postgis`，需要 PowerShell 7 (`pwsh`)。
+資料存在 PostGIS，經 GeoServer 發佈圖磚；.NET 後端（`Geo.API`）提供查詢 API 並定時更新資料，Vue 3 + Leaflet 前端（`Geo.Vue`）顯示。前置條件：PostgreSQL + PostGIS、資料庫 `taiwan`、GeoServer 的 workspace `taiwan` 與 Store `taiwan_postgis`，需要 PowerShell 7 (`pwsh`)、.NET SDK 10、Node 24。
 
 ```
 pwsh -File scripts\import-youbike.ps1      # 下載資料、轉 GeoJSON、匯入 PostGIS（輸入 postgres 密碼）；-Refresh 重新下載
 pwsh -File scripts\setup-geoserver.ps1     # 用 REST API 建樣式與圖層（預設帳密 admin/geoserver）
-python app\serve.py                        # 開啟 http://localhost:5600/
+```
+
+後端連線字串放 `src/Geo.API/appsettings.Development.json`（已 gitignore，格式見 `appsettings.Development.example.json`）：
+
+```
+dotnet run --project src\Geo.API --urls http://localhost:5286   # 後端與定時更新
+cd src\Geo.Vue; npm install; npm run dev                         # 開啟 http://localhost:5173/
 ```
 
 | 位置 | 內容 |
@@ -65,7 +71,8 @@ python app\serve.py                        # 開啟 http://localhost:5600/
 | `scripts/` | 匯入與 GeoServer 設定腳本，`youbike_to_geojson.py` 負責轉檔 |
 | `sql/` | `01` 匯入後補索引（腳本自動執行）、`02` 練習用空間查詢 |
 | `styles/youbike-bikes.sld` | 依可借車輛上色的樣式 |
-| `app/` | Leaflet 頁面與 `serve.py` 代理 |
+| `src/Geo.API`、`src/Geo.Service` | .NET 10 後端：Station API、定時更新 |
+| `src/Geo.Vue` | Vue 3 + Vite + Leaflet 前端（`server.proxy` 轉送 `/api`、`/geoserver`） |
 
 GeoServer 設定不在專案內，所以用 `setup-geoserver.ps1` 重建；`import-towns.ps1` 則匯入行政區邊界 `towns`。
 
