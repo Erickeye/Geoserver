@@ -61,6 +61,8 @@ tests/Geo.Tests/   之後再建
 | `GET api/Station/Districts` | 行政區與站數（下拉選單用） |
 | `GET api/Station/Map` | 地圖用的全部站點（精簡欄位：sno、行政區、車輛數、是否營運、座標），前端以 Canvas 繪製 |
 | `GET api/Station/History?sno=&hours=24` | 階段 4：單站最近 N 小時的車輛數變化 |
+| `GET api/Station/Status` | 來源資料更新時間、最近同步時間與錯誤 |
+| `GET /health` | 健康檢查：資料庫連線，且最近成功同步不超過 3 個間隔 |
 
 ## 實作階段
 
@@ -89,8 +91,10 @@ tests/Geo.Tests/   之後再建
 
 ### 階段 4：歷史快照（選做）
 
-- [ ] 新表 `youbike_snapshots`（sno、bikes、docks、recorded_at）與索引，定期清舊資料
-- [ ] `History` API；前端以簡單折線圖呈現
+- [x] 新表 `youbike_snapshots`（sno、bikes、docks、recorded_at；`sql/03_youbike_snapshots.sql`），只在數量變動時寫入，主鍵 `(sno, recorded_at)` 擋重複，每次同步順便清掉超過 `YouBike:SnapshotRetentionDays`（預設 7）的舊資料
+- [x] `History` API；前端以 SVG 階梯折線圖呈現（`HistoryChart.vue`）
+- [x] `Status` API 與 `/health`：資料更新時間、最近同步結果；前端顯示「資料更新於」
+- 設計取捨：只存變動點，量約為「每分鐘全站」的一成以下；沒變動的站在區間起點補上前一筆（或目前值）
 
 ### 階段 5：Vue 前端
 

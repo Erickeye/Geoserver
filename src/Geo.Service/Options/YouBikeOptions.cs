@@ -15,5 +15,8 @@ namespace Geo.Service.Options
 
         /// <summary>更新間隔（秒）；來源資料約每分鐘更新</summary>
         public int RefreshIntervalSeconds { get; set; } = 60;
+
+        /// <summary>歷史快照保留天數；0 表示不寫入快照</summary>
+        public int SnapshotRetentionDays { get; set; } = 7;
     }
 }

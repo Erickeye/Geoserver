@@ -69,7 +69,7 @@ cd src\Geo.Vue; npm install; npm run dev                         # 開啟 http:/
 | 位置 | 內容 |
 |---|---|
 | `scripts/` | 匯入與 GeoServer 設定腳本，`youbike_to_geojson.py` 負責轉檔 |
-| `sql/` | `01` 匯入後補索引（腳本自動執行）、`02` 練習用空間查詢 |
+| `sql/` | `01` 匯入後補索引（腳本自動執行）、`02` 練習用空間查詢、`03` 歷史快照表（需手動執行一次） |
 | `styles/youbike-bikes.sld` | 依可借車輛上色的樣式 |
 | `src/Geo.API`、`src/Geo.Service` | .NET 10 後端：Station API、定時更新 |
 | `src/Geo.Vue` | Vue 3 + Vite + Leaflet 前端（`server.proxy` 轉送 `/api`、`/geoserver`） |

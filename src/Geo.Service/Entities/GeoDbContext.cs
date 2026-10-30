@@ -13,9 +13,27 @@ public partial class GeoDbContext : DbContext
 
     public virtual DbSet<YoubikeStation> YoubikeStations { get; set; }
 
+    public virtual DbSet<YoubikeSnapshot> YoubikeSnapshots { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasPostgresExtension("postgis");
+
+        modelBuilder.Entity<YoubikeSnapshot>(entity =>
+        {
+            entity.HasKey(e => new { e.Sno, e.RecordedAt }).HasName("youbike_snapshots_pkey");
+
+            entity.ToTable("youbike_snapshots");
+
+            entity.HasIndex(e => e.RecordedAt, "idx_youbike_snapshots_recorded_at");
+
+            entity.Property(e => e.Sno)
+                .HasColumnType("character varying")
+                .HasColumnName("sno");
+            entity.Property(e => e.RecordedAt).HasColumnName("recorded_at");
+            entity.Property(e => e.Bikes).HasColumnName("bikes");
+            entity.Property(e => e.Docks).HasColumnName("docks");
+        });
 
         modelBuilder.Entity<YoubikeStation>(entity =>
         {

@@ -1,4 +1,5 @@
 using Geo.API.Filters;
+using Geo.API.HealthChecks;
 using Geo.API.BackgroundServices;
 using Geo.API.Middleware;
 using Geo.Service.Entities;
@@ -36,6 +37,9 @@ builder.Services.AddDbContext<GeoDbContext>(options =>
     options.UseNpgsql(connectionString, npgsql => npgsql.UseNetTopologySuite()));
 
 builder.Services.AddScoped<IStationService, StationService>();
+builder.Services.AddSingleton<ISyncStatusTracker, SyncStatusTracker>();
+
+builder.Services.AddHealthChecks().AddCheck<SyncHealthCheck>("sync");
 
 builder.Services.Configure<YouBikeOptions>(builder.Configuration.GetSection(YouBikeOptions.SectionName));
 builder.Services.AddHttpClient<IYouBikeSyncService, YouBikeSyncService>(client =>
@@ -64,5 +68,6 @@ if (app.Environment.IsDevelopment())
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHealthChecks("/health");
 
 app.Run();

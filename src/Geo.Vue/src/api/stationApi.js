@@ -5,5 +5,7 @@ export const stationApi = {
   get: sno => http.get('/Station/Get', { params: { sno } }),
   nearest: params => http.get('/Station/Nearest', { params }),
   districts: () => http.get('/Station/Districts'),
-  map: () => http.get('/Station/Map')
+  map: () => http.get('/Station/Map'),
+  status: () => http.get('/Station/Status'),
+  history: params => http.get('/Station/History', { params })
 }

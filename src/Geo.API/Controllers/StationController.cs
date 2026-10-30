@@ -40,6 +40,20 @@ namespace Geo.API.Controllers
             return Ok(await _service.Map());
         }
 
+        [SwaggerOperation("取得資料更新狀態")]
+        [HttpGet, Route("Status")]
+        public async Task<IActionResult> Status()
+        {
+            return Ok(await _service.Status());
+        }
+
+        [SwaggerOperation("取得單站歷史車輛數")]
+        [HttpGet, Route("History")]
+        public async Task<IActionResult> History([FromQuery] HistorySearchVM vm)
+        {
+            return Ok(await _service.History(vm));
+        }
+
         [SwaggerOperation("取得行政區與站數")]
         [HttpGet, Route("Districts")]
         public async Task<IActionResult> Districts()

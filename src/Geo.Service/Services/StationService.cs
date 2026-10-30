@@ -37,15 +37,83 @@ namespace Geo.Service.Services
         /// 取得地圖用的全部站點（精簡欄位，含停用站點）。
         /// </summary>
         Task<ResultModel<List<StationMapVM>>> Map();
+
+        /// <summary>
+        /// 取得資料更新狀態（來源資料時間、最近同步結果）。
+        /// </summary>
+        Task<ResultModel<StatusVM>> Status();
+
+        /// <summary>
+        /// 取得單站最近 N 小時的車輛數變化（只含數量有變動的時間點，由舊到新）。
+        /// </summary>
+        Task<ResultModel<List<StationHistoryVM>>> History(HistorySearchVM vm);
     }
 
     public class StationService : IStationService
     {
         private readonly GeoDbContext _db;
+        private readonly ISyncStatusTracker _status;
 
-        public StationService(GeoDbContext db)
+        public StationService(GeoDbContext db, ISyncStatusTracker status)
         {
             _db = db;
+            _status = status;
+        }
+
+        public async Task<ResultModel<StatusVM>> Status()
+        {
+            var dataUpdatedAt = await _db.YoubikeStations.AsNoTracking().MaxAsync(s => s.Updated);
+
+            return ResultModel<StatusVM>.Success(new StatusVM
+            {
+                DataUpdatedAt = dataUpdatedAt,
+                LastSyncAt = _status.LastSuccessAt,
+                LastError = _status.LastError
+            });
+        }
+
+        public async Task<ResultModel<List<StationHistoryVM>>> History(HistorySearchVM vm)
+        {
+            var station = await _db.YoubikeStations.AsNoTracking()
+                .Where(s => s.Sno == vm.Sno)
+                .Select(s => new { s.Bikes, s.Docks })
+                .FirstOrDefaultAsync();
+            if (station == null)
+            {
+                return ResultModel<List<StationHistoryVM>>.Error(ErrorCodeType.NotFoundData);
+            }
+
+            var since = DateTime.UtcNow.AddHours(-vm.Hours);
+            var items = await _db.YoubikeSnapshots.AsNoTracking()
+                .Where(h => h.Sno == vm.Sno && h.RecordedAt >= since)
+                .OrderBy(h => h.RecordedAt)
+                .Select(h => new StationHistoryVM
+                {
+                    RecordedAt = h.RecordedAt,
+                    Bikes = h.Bikes,
+                    Docks = h.Docks
+                })
+                .ToListAsync();
+
+            // 只有「變動時」才有紀錄，所以區間起點要補上當時的值，否則沒變動的站會是空圖：
+            // 優先用區間前最後一筆快照，沒有（例如快照剛開始累積）就用目前的值
+            var before = await _db.YoubikeSnapshots.AsNoTracking()
+                .Where(h => h.Sno == vm.Sno && h.RecordedAt < since)
+                .OrderByDescending(h => h.RecordedAt)
+                .Select(h => new StationHistoryVM { RecordedAt = since, Bikes = h.Bikes, Docks = h.Docks })
+                .FirstOrDefaultAsync();
+
+            if (before == null && items.Count == 0)
+            {
+                before = new StationHistoryVM { RecordedAt = since, Bikes = station.Bikes ?? 0, Docks = station.Docks ?? 0 };
+            }
+
+            if (before != null)
+            {
+                items.Insert(0, before);
+            }
+
+            return ResultModel<List<StationHistoryVM>>.Success(items);
         }
 
         public async Task<ResultModel<PagedResult<StationVM>>> Index(StationSearchVM vm)

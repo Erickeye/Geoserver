@@ -101,3 +101,7 @@ cd src\Geo.Vue; npm run dev                                      # 開啟 http:/
 - 定時重新匯入，讓可借車數接近即時（.NET 後端與 Vue 前端的擴充計畫見 [DOTNET_PLAN.md](DOTNET_PLAN.md)）
 - 納入其他縣市的 YouBike，或公車站、避難收容處所
 - 改用 Docker 部署 GeoServer + PostGIS（階段 6）
+
+## 指令
+- 啟動API: dotnet run --project src\Geo.API --urls http://localhost:5286
+- 關閉API: Get-Process Geo.API -ErrorAction SilentlyContinue | Stop-Process

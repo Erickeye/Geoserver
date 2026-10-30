@@ -2,8 +2,9 @@
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { stationApi } from '@/api/stationApi'
 import { getApiErrorMessage, isSuccess, unwrap } from '@/utils/api'
-import { normalizeStation } from '@/utils/station'
+import { formatTime, normalizeStation } from '@/utils/station'
 import MapView from '@/components/MapView.vue'
+import HistoryChart from '@/components/HistoryChart.vue'
 
 const NEAREST_N = 5
 // 來源資料約每分鐘更新一次，前端同步一次即可
@@ -23,6 +24,11 @@ const loading = ref(false)
 const loadingStations = ref(false)
 const error = ref('')
 const message = ref('')
+const dataUpdatedAt = ref('')
+const syncError = ref('')
+const history = ref([])
+const historyHours = ref(24)
+const loadingHistory = ref(false)
 
 let refreshTimer = null
 
@@ -70,6 +76,45 @@ async function loadStations() {
     error.value = getApiErrorMessage(e, '載入站點失敗')
   } finally {
     loadingStations.value = false
+  }
+}
+
+async function loadStatus() {
+  try {
+    const response = await stationApi.status()
+    if (!isSuccess(response)) {
+      return
+    }
+    const status = unwrap(response)
+    dataUpdatedAt.value = formatTime(status.dataUpdatedAt)
+    syncError.value = status.lastError ?? ''
+  } catch {
+    // 狀態只是輔助資訊，失敗時保留上一次的顯示，不打斷主要流程
+  }
+}
+
+async function refreshData() {
+  await Promise.all([loadStations(), loadStatus()])
+}
+
+async function loadHistory() {
+  if (!detail.value) {
+    history.value = []
+    return
+  }
+
+  loadingHistory.value = true
+  try {
+    const response = await stationApi.history({ sno: detail.value.sno, hours: historyHours.value })
+    if (!isSuccess(response)) {
+      error.value = getApiErrorMessage(response, '載入歷史失敗')
+      return
+    }
+    history.value = unwrap(response)
+  } catch (e) {
+    error.value = getApiErrorMessage(e, '載入歷史失敗')
+  } finally {
+    loadingHistory.value = false
   }
 }
 
@@ -174,11 +219,12 @@ function focusStation(sno) {
 }
 
 watch(district, onDistrictChange)
+watch([() => detail.value?.sno, historyHours], loadHistory)
 
 onMounted(() => {
   loadDistricts()
-  loadStations()
-  refreshTimer = setInterval(loadStations, REFRESH_MS)
+  refreshData()
+  refreshTimer = setInterval(refreshData, REFRESH_MS)
 })
 
 onUnmounted(() => {
@@ -228,6 +274,23 @@ onUnmounted(() => {
 
       <div v-if="error" class="status error">{{ error }}</div>
       <div v-else class="status">{{ statusText }}</div>
+      <div v-if="dataUpdatedAt" class="status" :class="{ warn: syncError }">
+        資料更新於 {{ dataUpdatedAt }}<template v-if="syncError">（最近同步失敗）</template>
+      </div>
+
+      <div v-if="detail" class="history">
+        <div class="row history-head">
+          <b>{{ detail.name }} · 可借車輛</b>
+          <select v-model.number="historyHours" aria-label="歷史範圍">
+            <option :value="6">6 小時</option>
+            <option :value="24">24 小時</option>
+            <option :value="72">3 天</option>
+            <option :value="168">7 天</option>
+          </select>
+        </div>
+        <div v-if="loadingHistory" class="status">載入中…</div>
+        <HistoryChart v-else :points="history" :total="detail.total" :hours="historyHours" />
+      </div>
 
       <ol class="nearest">
         <li v-for="(station, index) in nearest" :key="station.sno" @click="focusStation(station.sno)">
@@ -305,6 +368,29 @@ onUnmounted(() => {
 
 .status.error {
   color: #c62828;
+}
+
+.status.warn {
+  color: #e65100;
+}
+
+.history {
+  margin-top: 8px;
+  border-top: 1px solid #eee;
+  padding-top: 8px;
+}
+
+.history-head {
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.history-head select {
+  flex: none;
+  padding: 2px;
+  font-size: 12px;
 }
 
 .nearest {

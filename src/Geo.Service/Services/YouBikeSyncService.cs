@@ -37,21 +37,38 @@ namespace Geo.Service.Services
         private readonly HttpClient _http;
         private readonly GeoDbContext _db;
         private readonly YouBikeOptions _options;
+        private readonly ISyncStatusTracker _status;
         private readonly ILogger<YouBikeSyncService> _logger;
 
         public YouBikeSyncService(
             HttpClient http,
             GeoDbContext db,
             IOptions<YouBikeOptions> options,
+            ISyncStatusTracker status,
             ILogger<YouBikeSyncService> logger)
         {
             _http = http;
             _db = db;
             _options = options.Value;
+            _status = status;
             _logger = logger;
         }
 
         public async Task<ResultModel<int>> Sync(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return await SyncCore(cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // 例外仍往外丟（由 RefreshService 記錄），這裡只留狀態給健康檢查
+                _status.MarkFailure(ex.Message);
+                throw;
+            }
+        }
+
+        private async Task<ResultModel<int>> SyncCore(CancellationToken cancellationToken)
         {
             var source = await _http.GetFromJsonAsync<List<YouBikeSource>>(
                 _options.Url, JsonOptions, cancellationToken);
@@ -59,6 +76,7 @@ namespace Geo.Service.Services
             if (source == null || source.Count == 0)
             {
                 _logger.LogWarning("YouBike 來源沒有資料 {Url}", _options.Url);
+                _status.MarkFailure("來源沒有資料");
                 return ResultModel<int>.Error(ErrorCodeType.SystemError, "來源沒有資料");
             }
 
@@ -82,6 +100,26 @@ namespace Geo.Service.Services
             var lons = stations.Select(s => s.Longitude).ToArray();
             var lats = stations.Select(s => s.Latitude).ToArray();
 
+            // 快照與 upsert 放同一個交易：快照要在 upsert 之前，才能和「目前的值」比較
+            await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+
+            if (_options.SnapshotRetentionDays > 0)
+            {
+                // 只在可借／可還有變動（或新站）時寫一筆；recorded_at 用來源更新時間，
+                // 同一版資料重複抓到時由主鍵 (sno, recorded_at) 擋掉
+                await _db.Database.ExecuteSqlInterpolatedAsync($@"
+                    INSERT INTO youbike_snapshots (sno, bikes, docks, recorded_at)
+                    SELECT t.sno, t.bikes, t.docks, t.updated
+                    FROM unnest({snos}, {bikes}, {docks}, {updated}) AS t(sno, bikes, docks, updated)
+                    LEFT JOIN youbike_stations s ON s.sno = t.sno
+                    WHERE s.sno IS NULL OR s.bikes <> t.bikes OR s.docks <> t.docks
+                    ON CONFLICT (sno, recorded_at) DO NOTHING", cancellationToken);
+
+                var cutoff = DateTime.UtcNow.AddDays(-_options.SnapshotRetentionDays);
+                await _db.Database.ExecuteSqlInterpolatedAsync(
+                    $"DELETE FROM youbike_snapshots WHERE recorded_at < {cutoff}", cancellationToken);
+            }
+
             // 單一陳述式批次 upsert（unnest 陣列參數），避免上千次來回；全程參數化
             await _db.Database.ExecuteSqlInterpolatedAsync($@"
                 INSERT INTO youbike_stations
@@ -102,6 +140,9 @@ namespace Geo.Service.Services
                     active = EXCLUDED.active,
                     updated = EXCLUDED.updated,
                     geom = EXCLUDED.geom", cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            _status.MarkSuccess();
 
             _logger.LogInformation("YouBike 更新完成 {Count} / {Total} 站", stations.Count, source.Count);
             return ResultModel<int>.Success(stations.Count);
