@@ -9,6 +9,7 @@ import HistoryChart from '@/components/HistoryChart.vue'
 const NEAREST_N = 5
 // 來源資料約每分鐘更新一次，前端同步一次即可
 const REFRESH_MS = 60000
+const SEARCH_PAGE_SIZE = 20
 
 const districts = ref([])
 const district = ref('')
@@ -26,6 +27,11 @@ const error = ref('')
 const message = ref('')
 const dataUpdatedAt = ref('')
 const syncError = ref('')
+const keyword = ref('')
+const onlyAvailable = ref(false)
+const searchResults = ref([])
+const searchTotal = ref(0)
+const searching = ref(false)
 const history = ref([])
 const historyHours = ref(24)
 const loadingHistory = ref(false)
@@ -118,20 +124,67 @@ async function loadHistory() {
   }
 }
 
-function onDistrictChange() {
-  clearResults()
-  error.value = ''
-
-  if (!district.value) {
-    fitPoints.value = []
-    message.value = `共 ${totalCount.value} 站`
+async function runSearch() {
+  const text = keyword.value.trim()
+  if (!text) {
+    searchResults.value = []
+    searchTotal.value = 0
     return
   }
 
+  searching.value = true
+  error.value = ''
+  try {
+    const response = await stationApi.index({
+      keyword: text,
+      district: district.value || undefined,
+      onlyAvailable: onlyAvailable.value,
+      pageSize: SEARCH_PAGE_SIZE,
+      sortColumn: 'Name'
+    })
+    if (!isSuccess(response)) {
+      error.value = getApiErrorMessage(response, '搜尋失敗')
+      return
+    }
+
+    const page = unwrap(response)
+    searchResults.value = page.items.map(normalizeStation)
+    searchTotal.value = page.totalCount
+  } catch (e) {
+    error.value = getApiErrorMessage(e, '搜尋失敗')
+  } finally {
+    searching.value = false
+  }
+}
+
+async function selectSearchResult(station) {
+  fitPoints.value = [station]
+  await loadDetail(station.sno)
+}
+
+// 行政區或「只顯示有車」改變：地圖由 MapView 過濾；這裡處理縮放範圍、訊息與搜尋結果
+function onFilterChange() {
+  clearResults()
+  error.value = ''
+
+  if (keyword.value.trim()) {
+    runSearch()
+  }
+
+  const points = stations.value.filter(s =>
+    (!district.value || s.district === district.value) &&
+    (!onlyAvailable.value || (s.isActive && s.bikes > 0)))
+  const suffix = onlyAvailable.value ? '（僅有車）' : ''
+
   // 全部站點已在記憶體，直接過濾即可算出縮放範圍
-  const points = stations.value.filter(s => s.district === district.value)
+  if (!district.value) {
+    fitPoints.value = []
+    message.value = onlyAvailable.value ? `全部行政區：${points.length} 站有車` : `共 ${totalCount.value} 站`
+    return
+  }
+
   fitPoints.value = points
-  message.value = `${district.value}：${points.length} 站`
+  message.value = `${district.value}：${points.length} 站${suffix}`
 }
 
 async function showDetail(sno) {
@@ -209,6 +262,9 @@ function locateMe() {
 
 function clearAll() {
   clearResults()
+  keyword.value = ''
+  searchResults.value = []
+  searchTotal.value = 0
   fitPoints.value = []
   error.value = ''
   message.value = '已清除'
@@ -218,7 +274,7 @@ function focusStation(sno) {
   focus.value = { sno, seq: Date.now() }
 }
 
-watch(district, onDistrictChange)
+watch([district, onlyAvailable], onFilterChange)
 watch([() => detail.value?.sno, historyHours], loadHistory)
 
 onMounted(() => {
@@ -238,6 +294,7 @@ onUnmounted(() => {
       :stations="stations"
       :render-mode="renderMode"
       :district="district"
+      :only-available="onlyAvailable"
       :origin="origin"
       :nearest="nearest"
       :detail="detail"
@@ -257,6 +314,15 @@ onUnmounted(() => {
             {{ d.district }}（{{ d.stationCount }}）
           </option>
         </select>
+      </div>
+
+      <form class="row" @submit.prevent="runSearch">
+        <input v-model="keyword" type="search" maxlength="50" placeholder="搜尋站名或地址" aria-label="關鍵字">
+        <button type="submit" :disabled="searching">搜尋</button>
+      </form>
+
+      <div class="row mode">
+        <label><input v-model="onlyAvailable" type="checkbox"> 只顯示有車的站</label>
       </div>
 
       <div class="row">
@@ -291,6 +357,16 @@ onUnmounted(() => {
         <div v-if="loadingHistory" class="status">載入中…</div>
         <HistoryChart v-else :points="history" :total="detail.total" :hours="historyHours" />
       </div>
+
+      <div v-if="keyword.trim() && !searching" class="status">
+        搜尋結果 {{ searchTotal }} 站<template v-if="searchTotal > searchResults.length">（顯示前 {{ searchResults.length }} 站，請加關鍵字縮小範圍）</template>
+      </div>
+      <ul v-if="searchResults.length" class="results">
+        <li v-for="station in searchResults" :key="station.sno" @click="selectSearchResult(station)">
+          <b>{{ station.name }}</b>
+          <div class="meta">{{ station.district }} · 可借 {{ station.bikes }} · 可還 {{ station.docks }}<template v-if="!station.isActive"> · 停用</template></div>
+        </li>
+      </ul>
 
       <ol class="nearest">
         <li v-for="(station, index) in nearest" :key="station.sno" @click="focusStation(station.sno)">
@@ -332,6 +408,13 @@ onUnmounted(() => {
   display: flex;
   gap: 6px;
   margin-bottom: 8px;
+}
+
+.row input[type='search'] {
+  flex: 1;
+  min-width: 0;
+  padding: 6px;
+  font: inherit;
 }
 
 .row select,
@@ -391,6 +474,24 @@ onUnmounted(() => {
   flex: none;
   padding: 2px;
   font-size: 12px;
+}
+
+.results {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.results li {
+  padding: 6px 4px;
+  border-top: 1px solid #eee;
+  cursor: pointer;
+}
+
+.results li:hover {
+  background: #f3f7ff;
 }
 
 .nearest {

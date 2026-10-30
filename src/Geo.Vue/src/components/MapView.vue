@@ -7,6 +7,7 @@ const props = defineProps({
   stations: { type: Array, default: () => [] },
   renderMode: { type: String, default: 'canvas' },
   district: { type: String, default: '' },
+  onlyAvailable: { type: Boolean, default: false },
   origin: { type: Object, default: null },
   nearest: { type: Array, default: () => [] },
   detail: { type: Object, default: null },
@@ -74,8 +75,16 @@ function applyWmsFilter() {
   const params = wms.value.wmsParams
   delete params.CQL_FILTER
 
+  const conditions = []
   if (props.district) {
-    params.CQL_FILTER = `district='${props.district.replace(/'/g, "''")}'`
+    conditions.push(`district='${props.district.replace(/'/g, "''")}'`)
+  }
+  if (props.onlyAvailable) {
+    conditions.push('active=1 AND bikes>0')
+  }
+
+  if (conditions.length > 0) {
+    params.CQL_FILTER = conditions.join(' AND ')
   }
 
   wms.value.redraw()
@@ -93,12 +102,18 @@ function createStationMarker(station) {
     bubblingMouseEvents: false
   })
   marker.on('click', () => emit('station-click', station.sno))
-  return { marker, district: station.district }
+  return { marker, district: station.district, hasBikes: hasBikes(station) }
+}
+
+// 與後端 OnlyAvailable 同一規則：營運中且有車可借
+function hasBikes(station) {
+  return station.isActive && station.bikes > 0
 }
 
 function applyStationFilter() {
   stationMarkers.forEach(entry => {
-    const visible = !props.district || entry.district === props.district
+    const visible = (!props.district || entry.district === props.district)
+      && (!props.onlyAvailable || entry.hasBikes)
     const shown = stationLayer.value.hasLayer(entry.marker)
 
     if (visible && !shown) {
@@ -119,6 +134,7 @@ function syncStations() {
 
     if (entry) {
       entry.marker.setStyle({ fillColor: colorOf(station) })
+      entry.hasBikes = hasBikes(station)
     } else {
       stationMarkers.set(station.sno, createStationMarker(station))
     }
@@ -149,7 +165,7 @@ function applyRenderMode() {
   }
 }
 
-function onDistrictChange() {
+function onFilterChange() {
   applyWmsFilter()
   applyStationFilter()
 }
@@ -224,7 +240,7 @@ function onClick(event) {
 
 watch(() => props.stations, syncStations)
 watch(() => props.renderMode, applyRenderMode)
-watch(() => props.district, onDistrictChange)
+watch(() => [props.district, props.onlyAvailable], onFilterChange)
 watch(() => [props.origin, props.nearest], renderResults)
 watch(() => props.detail, showDetail)
 watch(() => props.fitPoints, fitToPoints)
